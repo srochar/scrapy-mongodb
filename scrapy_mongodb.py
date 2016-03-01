@@ -47,30 +47,30 @@ def not_set(string):
 
 class MongoDBPipeline(BaseItemExporter):
     """ MongoDB pipeline class """
-    # Default options
-    config = {
-        'uri': 'mongodb://localhost:27017',
-        'fsync': False,
-        'write_concern': 0,
-        'database': 'scrapy-mongodb',
-        'collection': 'items',
-        'replica_set': None,
-        'unique_key': None,
-        'buffer': None,
-        'append_timestamp': False,
-        'stop_on_duplicate': 0,
-    }
-
-    # Item buffer
-    current_item = 0
-    item_buffer = []
-
-    # Duplicate key occurence count
-    duplicate_key_count = 0
 
     def __init__(self, **kwargs):
         super(MongoDBPipeline, self).__init__(**kwargs)
         self.logger = logging.getLogger('scrapy')
+        # Default options
+        self.config = {
+            'uri': 'mongodb://localhost:27017',
+            'fsync': False,
+            'write_concern': 0,
+            'database': 'scrapy-mongodb',
+            'collection': 'items',
+            'replica_set': None,
+            'unique_key': None,
+            'buffer': None,
+            'append_timestamp': False,
+            'stop_on_duplicate': 0,
+        }
+
+        # Item buffer
+        self.current_item = 0
+        self.item_buffer = []
+
+        # Duplicate key occurence count
+        self.duplicate_key_count = 0
 
     def load_spider(self, spider):
         self.crawler = spider.crawler
