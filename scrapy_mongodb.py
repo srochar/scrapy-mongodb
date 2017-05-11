@@ -20,15 +20,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import datetime
 import logging
 
-from pymongo import errors
+from pymongo.errors import ServerSelectionTimeoutError, DuplicateKeyError
 from pymongo.mongo_client import MongoClient
 from pymongo.mongo_replica_set_client import MongoReplicaSetClient
 from pymongo.read_preferences import ReadPreference
 
+from datetime import datetime
+
 from scrapy.exporters import BaseItemExporter
+from scrapy.exceptions import NotConfigured
 
 VERSION = '0.9.1'
 
@@ -99,7 +101,14 @@ class MongoDBPipeline(BaseItemExporter):
                 self.config['uri'],
                 fsync=self.config['fsync'],
                 read_preference=ReadPreference.PRIMARY)
-
+        try:
+            connection.server_info()
+        except ServerSelectionTimeoutError:
+            self.logger.error(
+               u'Connection refused {0}'.format(
+                  self.config['uri']))
+            raise NotConfigured(u'Connection refused: {0}'.format(
+               self.config['uri']))
         # Set up the collection
         database = connection[self.config['database']]
         self.collection = database[self.config['collection']]
@@ -205,7 +214,7 @@ class MongoDBPipeline(BaseItemExporter):
             self.current_item += 1
 
             if self.config['append_timestamp']:
-                item['scrapy-mongodb'] = {'ts': datetime.datetime.utcnow()}
+                item['scrapy-mongodb'] = {'ts': datetime.utcnow()}
 
             self.item_buffer.append(item)
 
@@ -244,7 +253,7 @@ class MongoDBPipeline(BaseItemExporter):
             item = dict(item)
 
             if self.config['append_timestamp']:
-                item['scrapy-mongodb'] = {'ts': datetime.datetime.utcnow()}
+                item['scrapy-mongodb'] = {'ts': datetime.utcnow()}
 
         if self.config['unique_key'] is None:
             try:
@@ -253,7 +262,7 @@ class MongoDBPipeline(BaseItemExporter):
                     u'Stored item(s) in MongoDB {0}/{1}'.format(
                         self.config['database'], self.config['collection'])
                 )
-            except errors.DuplicateKeyError:
+            except DuplicateKeyError:
                 self.logger.debug(u'Duplicate key found')
                 if (self.stop_on_duplicate > 0):
                     self.duplicate_key_count += 1
@@ -262,7 +271,13 @@ class MongoDBPipeline(BaseItemExporter):
                             spider,
                             'Number of duplicate key insertion exceeded'
                         )
-                pass
+            except ServerSelectionTimeoutError:
+               self.logger.error(u'Connection refused {0}'.format(
+                  self.config['uri']))
+               self.crawler.engine.close_spider(
+                            spider,
+                            'Connection refused MongoDB'
+                        )
 
         else:
             key = {}
